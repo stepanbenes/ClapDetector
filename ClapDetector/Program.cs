@@ -1,6 +1,4 @@
 ﻿using OpenAL;
-using System;
-using System.Linq;
 
 namespace ClapDetector
 {
