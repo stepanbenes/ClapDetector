@@ -8,13 +8,13 @@ namespace OpenAL
 {
 	public class Alc
 	{
-		//#if MACOS
-		//        public const string OpenAlDll = "/System/Library/Frameworks/OpenAL.framework/OpenAL";
-		//#elif LINUX
-		//        public const string OpenAlDll = "libopenal.so.1";
-		//#elif WINDOWS
+#if OSX
+		public const string OpenAlDll = "/System/Library/Frameworks/OpenAL.framework/OpenAL";
+#elif LINUX
+		public const string OpenAlDll = "libopenal.so.1";
+#elif WINDOWS
 		public const string OpenAlDll = "openal32.dll";
-		//#endif
+#endif
 
 		#region Enum
 
