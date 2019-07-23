@@ -44,17 +44,16 @@ namespace ClapDetector
 							Alc.CaptureSamples(captureDevice, (void*)bufferPointer, samplesAvailableCount);
 
 							// ... do something with the buffer
-							double energy = 0;
-							for (int i = 0; i < samplesAvailableCount; i++)
-							{
-								energy += Math.Abs((double)buffer[i]) / (double)short.MaxValue;
-							}
-							double intensity = energy / samplesAvailableCount;
+							double rms = calculateRMS(buffer, samplesAvailableCount);
+							double maxAmplitude = short.MaxValue;
+							double intensity = rms / maxAmplitude;
 							printIntensity(intensity);
 						}
 					}
 				}
 			}
+			resetConsoleSettings();
+
 			Alc.CaptureStop(captureDevice);
 
 			Alc.CaptureCloseDevice(captureDevice);
@@ -64,20 +63,38 @@ namespace ClapDetector
 
 			void printIntensity(double intensity)
 			{
+				Console.CursorVisible = false;
 				ClearCurrentConsoleLine();
 				int characterCount = (int)Math.Round(Console.WindowWidth * intensity);
 				for (int i = 0; i < characterCount; i++)
 				{
 					double value = (double)i / Console.WindowWidth;
-					if (value > 0.8)
+					if (value > 0.66)
 						Console.ForegroundColor = ConsoleColor.Red;
-					else if (value > 0.5)
+					else if (value > 0.33)
 						Console.ForegroundColor = ConsoleColor.Yellow;
 					else
 						Console.ForegroundColor = ConsoleColor.Green;
-					Console.Write('\u25A0');
+					Console.Write('■');
 				}
+			}
+
+			void resetConsoleSettings()
+			{
 				Console.ResetColor();
+				Console.CursorVisible = true;
+			}
+
+			double calculateRMS(short[] values, int count)
+			{
+				if (count <= 0 || count > values.Length) throw new ArgumentOutOfRangeException(nameof(count), "Argument must be positive integer lower that the values array length.");
+				double sqrSum = 0;
+				for (int i = 0; i < count; i++)
+				{
+					sqrSum += (double)values[i] * values[i];
+				}
+				double sqrSumAvg = sqrSum / count;
+				return Math.Sqrt(sqrSumAvg);
 			}
 		}
 
