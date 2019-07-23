@@ -8,6 +8,7 @@ namespace ClapDetector
 	{
 		static async Task Main(string[] args)
 		{
+
 			// inspired by: https://stackoverflow.com/questions/4087727/openal-how-to-create-simple-microphone-echo-programm
 
 			var audioDevice = Alc.OpenDevice(null);
@@ -20,30 +21,36 @@ namespace ClapDetector
 
 			const int frequency = 22050;
 
-			var captureDevice = Alc.CaptureOpenDevice(devicename: null, frequency, format: Al.FormatMono16, buffersize: frequency * 5); // 1 second window
+			var captureDevice = Alc.CaptureOpenDevice(devicename: null, frequency, format: Al.FormatMono16, buffersize: frequency);
 
 			Alc.CaptureStart(captureDevice);
+
+			Console.WriteLine("Clap detector is listening..."); // need new line for intensity visualization
+
+			short[] buffer = new short[frequency];
 			unsafe
 			{
 				fixed (int* samplesAvailable = new int[1])
-				fixed (short* buffer = new short[frequency])
+				fixed (short* bufferPointer = buffer)
 				{
 					IntPtr samplesAvailablePointer = new IntPtr((void*)samplesAvailable);
-					int captureSize = 2048;
+					int captureCount = 2048;
 					while (true)
 					{
 						Alc.GetIntegerv(captureDevice, Alc.EnumCaptureSamples, 1, samplesAvailablePointer);
-						if (samplesAvailable[0] > captureSize)
+						int samplesAvailableCount = samplesAvailable[0];
+						if (samplesAvailableCount > captureCount)
 						{
-							Alc.CaptureSamples(captureDevice, (void*)buffer, samplesAvailable[0]);
+							Alc.CaptureSamples(captureDevice, (void*)bufferPointer, samplesAvailableCount);
 
 							// ... do something with the buffer
-							long energy = 0;
-							for (int i = 0; i < samplesAvailable[0]; i++)
+							double energy = 0;
+							for (int i = 0; i < samplesAvailableCount; i++)
 							{
-								energy += Math.Abs(buffer[i]);
+								energy += Math.Abs((double)buffer[i]) / (double)short.MaxValue;
 							}
-							Console.WriteLine(energy);
+							double intensity = energy / samplesAvailableCount;
+							printIntensity(intensity);
 						}
 					}
 				}
@@ -54,6 +61,32 @@ namespace ClapDetector
 			Alc.MakeContextCurrent(IntPtr.Zero);
 			Alc.DestroyContext(context);
 			Alc.CloseDevice(audioDevice);
+
+			void printIntensity(double intensity)
+			{
+				ClearCurrentConsoleLine();
+				int characterCount = (int)Math.Round(Console.WindowWidth * intensity);
+				for (int i = 0; i < characterCount; i++)
+				{
+					double value = (double)i / Console.WindowWidth;
+					if (value > 0.8)
+						Console.ForegroundColor = ConsoleColor.Red;
+					else if (value > 0.5)
+						Console.ForegroundColor = ConsoleColor.Yellow;
+					else
+						Console.ForegroundColor = ConsoleColor.Green;
+					Console.Write('\u25A0');
+				}
+				Console.ResetColor();
+			}
+		}
+
+		public static void ClearCurrentConsoleLine()
+		{
+			int currentLineCursor = Console.CursorTop;
+			Console.SetCursorPosition(0, Console.CursorTop);
+			Console.Write(new string(' ', Console.WindowWidth));
+			Console.SetCursorPosition(0, currentLineCursor);
 		}
 	}
 }
