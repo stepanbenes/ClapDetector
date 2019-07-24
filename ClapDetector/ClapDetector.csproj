@@ -11,6 +11,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="SoundFingerprinting" Version="7.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\OpenAL.NETCore\OpenAL.NETCore.csproj" />
   </ItemGroup>
 

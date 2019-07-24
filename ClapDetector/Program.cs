@@ -1,15 +1,19 @@
 ﻿using OpenAL;
+using SoundFingerprinting.Audio;
+using SoundFingerprinting.Builder;
+using SoundFingerprinting.Configuration;
 using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Diagnostics;
 using System.Threading.Tasks;
 
 namespace ClapDetector
 {
 	class Program
 	{
-		static void Main(string[] args)
+		static async Task Main(string[] args)
 		{
+			// =============================================================================================================
 			// inspired by: https://stackoverflow.com/questions/4087727/openal-how-to-create-simple-microphone-echo-programm
 
 			var audioDevice = Alc.OpenDevice(null);
@@ -33,7 +37,7 @@ namespace ClapDetector
 			Console.WriteLine("listening for keywords..."); // need new line for intensity visualization
 
 			short[] buffer = new short[frequency];
-			const int keywordLength = frequency * 1;
+			const int keywordLength = (int)(frequency * 2);
 			double? previousRMS = null;
 
 			List<short> keywordSamples = new List<short>(capacity: keywordLength);
@@ -65,7 +69,7 @@ namespace ClapDetector
 							if (rms > previousRMS * factor) // beginning of window
 							{
 								isRecording = true;
-								Console.Beep(10000, 10);
+								//Console.Beep(10000, 10);
 							}
 
 							if (isRecording)
@@ -84,11 +88,24 @@ namespace ClapDetector
 			Alc.CaptureStop(captureDevice);
 			resetConsoleSettings();
 
+			string keywordFilename = "keyword.wav";
+			
 			// write output
 			{
-				var wavFile = new WavFile("keyword.wav") { SamplesPerSecond = frequency, SamplesTotalCount = keywordSamples.Count };
+				Debug.Assert(keywordSamples.Count >= keywordLength);
+				var wavFile = new WavFile(keywordFilename) { SamplesPerSecond = frequency, SamplesTotalCount = keywordLength /* trim samples */ };
 				wavFile.WriteMono16bit(keywordSamples.ToArray());
 			}
+
+			// read output
+			{
+				IAudioService audioService = new SoundFingerprintingAudioService(); // default audio library
+				var fingerprints = await FingerprintCommandBuilder.Instance.BuildFingerprintCommand().From(keywordFilename).UsingServices(audioService).Hash();
+
+			}
+
+			// TODO: real-time querying
+
 
 			// clean up
 			Alc.CaptureCloseDevice(captureDevice);

@@ -65,7 +65,7 @@ namespace ClapDetector
 				Debug.Assert(Encoding.ASCII.GetString(dataId) == "data", "Data chunk not found!");
 
 				SamplesPerSecond = sampleRate;                  // sample rate (usually 44100)
-				SamplesTotalCount = dataSize;  // total samples count in audio data
+				SamplesTotalCount = dataSize / (bitDepth / 8);  // total samples count in audio data
 
 				// audio data:
 
@@ -189,7 +189,7 @@ namespace ClapDetector
 				// chunk 2:
 
 				writer.Write(Encoding.ASCII.GetBytes("data"));  // "data"
-				writer.Write((int)SamplesTotalCount);   // size of audio data 16-bit
+				writer.Write((int)(SamplesTotalCount * 2));   // size of audio data 16-bit
 
 				// audio data:
 
