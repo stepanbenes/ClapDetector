@@ -1,8 +1,13 @@
-﻿using NAudio.Dsp;
+﻿using ClapDetector.Extensions;
+using NAudio.Dsp;
 using OpenAL;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace ClapDetector
@@ -24,7 +29,7 @@ namespace ClapDetector
 			Alc.MakeContextCurrent(context);
 
 			const int frequency = 44100;
-			const int keywordLength = (int)(frequency * 1.1);
+			const int keywordLength = (int)(frequency);
 
 			var captureDevice = Alc.CaptureOpenDevice(devicename: null, frequency, format: Al.FormatMono16, buffersize: frequency);
 
@@ -48,13 +53,44 @@ namespace ClapDetector
 
 					Alc.CaptureStop(captureDevice);
 
-					// write output
+					// write sound file
 					{
-						string keywordFilename = $"{keywordName}.wav";
+						string filename = $"{keywordName}.wav";
 						Debug.Assert(samples.Length >= keywordLength);
-						var wavFile = new WavFile(keywordFilename) { SamplesPerSecond = frequency, SamplesTotalCount = keywordLength /* trim samples */ };
+						var wavFile = new WavFile(filename) { SamplesPerSecond = frequency, SamplesTotalCount = keywordLength /* trim samples */ };
 						wavFile.WriteMono16bit(samples);
-						Console.WriteLine($"'{keywordFilename}' was saved.");
+						Console.WriteLine($"'{filename}' was saved.");
+					}
+
+					// create spectrogram and save as image
+					{
+						int width = (int)Math.Sqrt(samples.Length * 2); // TODO: make better formula for square images
+						var bins = samples.Partition(size: width);
+
+						var spectrogram = new List<double[]>();
+
+						foreach (var bin in bins)
+						{
+							double[] histogram = calculateFFT(bin.ToArray());
+							spectrogram.Add(histogram);
+						}
+
+						using (Bitmap bitmap = new Bitmap(spectrogram.Count, spectrogram[0].Length))
+						{
+							for (int i = 0; i < spectrogram.Count; i++)
+							{
+								for (int j = 0; j < spectrogram[i].Length; j++)
+								{
+									double value = spectrogram[i][j];
+									double pixelValue = Math.Max(0, Math.Min(255, value * 10)); // TODO: do not trim values, make better multiplying factor
+									byte color = (byte)(pixelValue);
+									bitmap.SetPixel(i, j, Color.FromArgb(color, color, color));
+								}
+							}
+							string filename = $"{keywordName}.png";
+							bitmap.Save(filename, ImageFormat.Png);
+							Console.WriteLine($"'{filename}' was saved.");
+						}
 					}
 				}
 			}
@@ -65,8 +101,8 @@ namespace ClapDetector
 				while (true)
 				{
 					short[] samples = captureSamples(captureDevice, frequency, keywordLength);
-
-					var fftData = calculateFFT(samples);
+					// TODO: generate spectrogram image and compare to existing models
+					Console.WriteLine("samples taken");
 				}
 				Alc.CaptureStop(captureDevice);
 			}
@@ -81,7 +117,8 @@ namespace ClapDetector
 
 		private unsafe static short[] captureSamples(IntPtr captureDevice, int frequency, int sampleCount)
 		{
-			List<short> samples = new List<short>(capacity: sampleCount);
+			short[] samples = new short[sampleCount];
+			int samplesTaken = 0;
 
 			bool isRecording = false;
 			double? previousRMS = null;
@@ -89,7 +126,7 @@ namespace ClapDetector
 			fixed (int* samplesAvailable = new int[1])
 			fixed (short* bufferPointer = buffer)
 			{
-				while (samples.Count < sampleCount)
+				while (samplesTaken < sampleCount)
 				{
 					IntPtr samplesAvailablePointer = new IntPtr((void*)samplesAvailable);
 					Alc.GetIntegerv(captureDevice, Alc.EnumCaptureSamples, 1, samplesAvailablePointer);
@@ -118,7 +155,9 @@ namespace ClapDetector
 						{
 							for (int i = 0; i < samplesAvailableCount; i++)
 							{
-								samples.Add(buffer[i]);
+								samples[samplesTaken++] = buffer[i];
+								if (samplesTaken == sampleCount)
+									goto done;
 							}
 						}
 
@@ -126,7 +165,7 @@ namespace ClapDetector
 					}
 				}
 			}
-
+		done:
 			resetConsoleSettings();
 
 			return samples.ToArray();
@@ -152,6 +191,7 @@ namespace ClapDetector
 
 		private static void resetConsoleSettings()
 		{
+			clearCurrentConsoleLine();
 			Console.ResetColor();
 			Console.CursorVisible = true;
 		}
@@ -198,6 +238,27 @@ namespace ClapDetector
 				dataFft[i] = fftLeft + fftRight;
 			}
 			return dataFft;
+		}
+
+		private static double[] createRelativeHistogram(double[] spectrum, int binSize)
+		{
+			double globalSum = spectrum.Sum();
+			return spectrum.Partition(binSize).Select(partition => partition.Sum() / globalSum).ToArray();
+		}
+
+		private static Dictionary<string, double[]> loadKeywordHistograms()
+		{
+			var result = new Dictionary<string, double[]>();
+			foreach (var keywordFilename in Directory.EnumerateFiles(Directory.GetCurrentDirectory(), "*.wav", SearchOption.TopDirectoryOnly))
+			{
+				var wavFile = new WavFile(keywordFilename);
+				if (wavFile.ReadMono16bit(out short[] samples))
+				{
+					string keyword = Path.GetFileNameWithoutExtension(keywordFilename);
+					result[keyword] = calculateFFT(samples);
+				}
+			}
+			return result;
 		}
 	}
 }
