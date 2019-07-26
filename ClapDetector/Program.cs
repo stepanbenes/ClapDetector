@@ -53,13 +53,17 @@ namespace ClapDetector
 
 					Alc.CaptureStop(captureDevice);
 
+					int fileIndex = 0;
+					while (File.Exists($"{keywordName}.{fileIndex}.wav"))
+						fileIndex += 1;
+
 					// write sound file
 					{
-						string filename = $"{keywordName}.wav";
+						string filename = $"{keywordName}.{fileIndex}.wav";
 						Debug.Assert(samples.Length >= keywordLength);
 						var wavFile = new WavFile(filename) { SamplesPerSecond = frequency, SamplesTotalCount = keywordLength /* trim samples */ };
 						wavFile.WriteMono16bit(samples);
-						Console.WriteLine($"'{filename}' was saved.");
+						Console.WriteLine($"wav file was saved.");
 					}
 
 					// create spectrogram and save as image
@@ -87,9 +91,9 @@ namespace ClapDetector
 									bitmap.SetPixel(i, j, Color.FromArgb(color, color, color));
 								}
 							}
-							string filename = $"{keywordName}.png";
+							string filename = $"{keywordName}.{fileIndex}.png";
 							bitmap.Save(filename, ImageFormat.Png);
-							Console.WriteLine($"'{filename}' was saved.");
+							Console.WriteLine($"png file was saved.");
 						}
 					}
 				}
