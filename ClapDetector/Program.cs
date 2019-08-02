@@ -20,18 +20,22 @@ namespace ClapDetector
 			// =============================================================================================================
 			// inspired by: https://stackoverflow.com/questions/4087727/openal-how-to-create-simple-microphone-echo-programm
 
-			var audioDevice = Alc.OpenDevice(null);
+			string captureDeviceSpecifier = Alc.GetString(IntPtr.Zero, Alc.CaptureDeviceSpecifier);
 
-			//var errorCode = Alc.GetError(audioDevice); // TODO: check this after each Alc call
-			//var errorCode = Al.GetError(); // TODO: check this after each Al call
+			Console.WriteLine("Capture device name: " + captureDeviceSpecifier);
 
-			var context = Alc.CreateContext(audioDevice, null);
-			Alc.MakeContextCurrent(context);
+			//var audioDevice = Alc.OpenDevice(null);
+			
+			////var errorCode = Alc.GetError(audioDevice); // TODO: check this after each Alc call
+			////var errorCode = Al.GetError(); // TODO: check this after each Al call
+
+			//var context = Alc.CreateContext(audioDevice, null);
+			//Alc.MakeContextCurrent(context);
 
 			const int frequency = 44100;
 			const int keywordLength = (int)(frequency);
 
-			var captureDevice = Alc.CaptureOpenDevice(devicename: null, frequency, format: Al.FormatMono16, buffersize: frequency);
+			var captureDevice = Alc.CaptureOpenDevice(captureDeviceSpecifier, frequency, format: Al.FormatMono16, buffersize: frequency);
 
 			string deviceName = Alc.GetString(captureDevice, Alc.DeviceSpecifier);
 
@@ -114,8 +118,8 @@ namespace ClapDetector
 			// clean up
 			Alc.CaptureCloseDevice(captureDevice);
 			Alc.MakeContextCurrent(IntPtr.Zero);
-			Alc.DestroyContext(context);
-			Alc.CloseDevice(audioDevice);
+			//Alc.DestroyContext(context);
+			//Alc.CloseDevice(audioDevice);
 
 		}
 
