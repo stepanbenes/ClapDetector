@@ -106,11 +106,15 @@ namespace ClapDetector
 			{
 				Alc.CaptureStart(captureDevice);
 				Console.WriteLine("listening for keyword..."); // need new line for intensity visualization
+					var reporter = new ClapDetector.Client.Reporter();
 				while (true)
 				{
 					short[] samples = captureSamples(captureDevice, frequency, keywordLength);
 					// TODO: generate spectrogram image and compare to existing models
 					Console.WriteLine("samples taken");
+
+					string replyMessage = await reporter.ReportClapAsync();
+					System.Console.WriteLine($"[{DateTime.UtcNow:HH:mm:ss.fff}]: {replyMessage}");
 				}
 				Alc.CaptureStop(captureDevice);
 			}
